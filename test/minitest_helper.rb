@@ -11,13 +11,18 @@ require 'minitest/hooks/test'
 
 class HttpServerTest < Minitest::Test
   include Minitest::Hooks
+  # include only one server to be run for all tests
+  @@SERVER = Server.new
 
   def before_all
-    @server = Server.new
-    @server.run_server
+    @@SERVER.run_server
   end
 
   def make_tcp_socket_connection
     @socket = TCPSocket.new 'localhost', 2000
+  end
+
+  def assert_not(assertion)
+    assert !assertion
   end
 end

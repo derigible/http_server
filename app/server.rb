@@ -1,6 +1,8 @@
 require 'socket'
 require 'byebug'
 
+require 'file_requested'
+
 class RequestError < StandardError
 end
 
@@ -13,6 +15,13 @@ end
 
 class MethodNotAllowedError < RequestError
   MESSAGE = 'HTTP/1.1 405 Method Not Allowed'.freeze
+  def message
+    MESSAGE
+  end
+end
+
+class FourOhFourNotFoundError < RequestError
+  MESSAGE = 'HTTP/1.1 404 Not Found'.freeze
   def message
     MESSAGE
   end
@@ -33,13 +42,23 @@ class Response
   private
 
   def message_headers
-    @headers.keys.each_with_object([]) do |header, memo|
+    out = @headers.keys.each_with_object([]) do |header, memo|
       memo << "#{header}: #{@headers[header]}"
-    end.join("\n")
+    end
+    if @body.nil?
+      out.join("\n")
+    else
+      out << "Content-Length: #{body_size}"
+      out << 'Accept-Ranges: bytes'
+    end
   end
 
   def message_body
-    @body.nil? ? '' : "\n#{@body}"
+    @body.nil? ? '' : "\n\n#{@body}"
+  end
+
+  def body_size
+    @body.size
   end
 end
 
@@ -49,39 +68,32 @@ class Server
   end
 
   def handle_request(client)
-    parse_request(client)
-    good_request_response(client)
+    file_requested = parse_request(client)
+    good_request_response(
+      client,
+      file_requested.read,
+      file_requested.content_type,
+      file_requested.content_disposition
+    )
   rescue RequestError => e
     bad_request_response(client, e.message)
   ensure
     client.close
   end
 
-  def good_request_response(client)
+  def good_request_response(client, body, content_type = nil, content_disposition = nil)
     headers = {
       'Server' => 'Mphillips/0.0.0.0 (Unix) (Ubuntu/Linux)',
       'Connection' => 'close',
-      'Content-Type' => 'text/html; charset=UTF-8',
-      'Content-Length' => 155,
-      'Accept-Ranges' => 'bytes'
-
+      'Content-Type' => content_type
     }
-    body = <<~BODY
-      <html>
-        <head>
-          <title>An Example Page</title>
-        </head>
-        <body>
-          <p>Hello World, this is a very simple HTML document.</p>
-        </body>
-      </html>
-    BODY
+    headers['Content-Disposition'] = content_disposition if content_disposition
     resp = Response.new headers: headers, body: body
     client.puts resp.message
   end
 
   def run_server
-    @server_thread = Thread.new do
+    @server_thread ||= Thread.new do
       loop do
         Thread.start(@server.accept) do |client|
           handle_request(client)
@@ -109,6 +121,11 @@ class Server
     http_head_parts = client.gets.split(' ')
     raise BadRequestError if invalid_http_request? http_head_parts
     raise MethodNotAllowedError if invalid_http_method? http_head_parts
+
+    file_requested = FileRequested.new http_head_parts[1]
+    raise FourOhFourNotFoundError unless file_requested.accept_request?
+
+    file_requested
   end
 
   def invalid_http_request?(request_head)
