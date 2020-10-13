@@ -1,7 +1,7 @@
 require 'socket'
 require 'byebug'
 
-require 'file_requested'
+require_relative 'file_requested'
 
 class RequestError < StandardError
 end
@@ -63,8 +63,9 @@ class Response
 end
 
 class Server
-  def initialize(port = 2000)
+  def initialize(port = 2000, verbose: true)
     @server = TCPServer.new port
+    @verbose = verbose
   end
 
   def handle_request(client)
@@ -96,7 +97,9 @@ class Server
     @server_thread ||= Thread.new do
       loop do
         Thread.start(@server.accept) do |client|
+          puts 'Request received' if @verbose
           handle_request(client)
+          puts 'Request delivered' if @verbose
         end
       end
     end
