@@ -7,7 +7,7 @@ class FileRequested
   end
 
   def accept_request?
-    File.exist?(normalized_path)
+    File.exist?(normalized_path) && File.realpath(normalized_path).start_with?("#{Dir.pwd}/files")
   end
 
   def read

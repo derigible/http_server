@@ -6,7 +6,20 @@ class TestRequests < HttpServerTest
     uri = URI("http://localhost:#{PORT}/")
     resp = Net::HTTP.get_response(uri)
     assert resp.is_a?(Net::HTTPSuccess)
-    assert resp.body .start_with? '<html>'
+    assert resp.body.start_with? '<html>'
+  end
+
+  def test_uri_unescaped_correctly
+    uri = URI("http://localhost:#{PORT}/#{CGI.escape('a file.html')}")
+    resp = Net::HTTP.get_response(uri)
+    assert resp.is_a?(Net::HTTPSuccess)
+    assert resp.body.start_with? '<html>'
+  end
+
+  def test_404_with_directory_attack_attempted
+    uri = URI("http://localhost:#{PORT}/../main.rb")
+    resp = Net::HTTP.get_response(uri)
+    assert resp.is_a?(Net::HTTPNotFound)
   end
 
   def test_not_found

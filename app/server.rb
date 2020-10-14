@@ -1,5 +1,6 @@
 require 'socket'
 require 'byebug'
+require 'cgi'
 
 require_relative 'file_requested'
 require_relative 'response'
@@ -68,7 +69,7 @@ class Server
     raise BadRequestError if request_invalid? http_head_parts, client, start_line
     raise MethodNotAllowedError if invalid_http_method? http_head_parts
 
-    file_requested = FileRequested.new http_head_parts[1]
+    file_requested = FileRequested.new CGI.unescape(http_head_parts[1])
     raise FourOhFourNotFoundError unless file_requested.accept_request?
 
     file_requested
@@ -94,15 +95,17 @@ class Server
 
   def invalid_http_headers?(client)
     lines = []
+    seen_headers_count = 0
     while (line = client.readline) && line != "\r\n"
-      lines << line
+      parts = CGI.unescape(line).split(':')
+      lines << parts
+      seen_headers_count += 1 if parts.first.upcase == 'HOST'
     end
-    lines.any? { |l| invalid_header? l }
+    lines.any? { |l| invalid_header? l } || seen_headers_count != 1
   end
 
-  def invalid_header?(header)
-    parts = header.split(':')
-    return true if parts.first =~ /\s/
+  def invalid_header?(header_parts)
+    return true if header_parts.first =~ /\s/
 
     false
   end
