@@ -2,65 +2,7 @@ require 'socket'
 require 'byebug'
 
 require_relative 'file_requested'
-
-class RequestError < StandardError
-end
-
-class BadRequestError < RequestError
-  MESSAGE = 'HTTP/1.1 400 Bad Request'.freeze
-  def message
-    MESSAGE
-  end
-end
-
-class MethodNotAllowedError < RequestError
-  MESSAGE = 'HTTP/1.1 405 Method Not Allowed'.freeze
-  def message
-    MESSAGE
-  end
-end
-
-class FourOhFourNotFoundError < RequestError
-  MESSAGE = 'HTTP/1.1 404 Not Found'.freeze
-  def message
-    MESSAGE
-  end
-end
-
-class Response
-  START_LINE = 'HTTP/1.1 200 OK'.freeze
-
-  def initialize(headers: {}, body: nil)
-    @headers = headers
-    @body = body
-  end
-
-  def message
-    "#{START_LINE}\n#{message_headers}#{message_body}"
-  end
-
-  private
-
-  def message_headers
-    out = @headers.keys.each_with_object([]) do |header, memo|
-      memo << "#{header}: #{@headers[header]}"
-    end
-    if @body.nil?
-      out.join("\n")
-    else
-      out << "Content-Length: #{body_size}"
-      out << 'Accept-Ranges: bytes'
-    end
-  end
-
-  def message_body
-    @body.nil? ? '' : "\n\n#{@body}"
-  end
-
-  def body_size
-    @body.size
-  end
-end
+require_relative 'response'
 
 class Server
   def initialize(port = 2000, verbose: true)
@@ -121,8 +63,9 @@ class Server
   end
 
   def parse_request(client)
-    http_head_parts = client.gets.split(' ')
-    raise BadRequestError if invalid_http_request? http_head_parts
+    start_line = client.gets
+    http_head_parts = start_line.split(' ')
+    raise BadRequestError if request_invalid? http_head_parts, client, start_line
     raise MethodNotAllowedError if invalid_http_method? http_head_parts
 
     file_requested = FileRequested.new http_head_parts[1]
@@ -131,11 +74,36 @@ class Server
     file_requested
   end
 
-  def invalid_http_request?(request_head)
-    request_head.size != 3
+  def request_invalid?(http_head_parts, client, start_line)
+    invalid_http_request?(http_head_parts, start_line) ||
+      invalid_http_headers?(client) ||
+      invalid_http_version?(http_head_parts)
+  end
+
+  def invalid_http_version?(request_head)
+    request_head.last != 'HTTP/1.1'
+  end
+
+  def invalid_http_request?(request_head, start_line)
+    request_head.size != 3 || start_line =~ /[ ]{2,}/
   end
 
   def invalid_http_method?(request_head)
     request_head.first != 'GET'
+  end
+
+  def invalid_http_headers?(client)
+    lines = []
+    while (line = client.readline) && line != "\r\n"
+      lines << line
+    end
+    lines.any? { |l| invalid_header? l }
+  end
+
+  def invalid_header?(header)
+    parts = header.split(':')
+    return true if parts.first =~ /\s/
+
+    false
   end
 end

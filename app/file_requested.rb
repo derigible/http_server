@@ -1,14 +1,13 @@
 class FileRequested
   HTML_RESPONSE = 'text/html; charset=UTF-8'.freeze
   OTHER_RESPONSE = 'application/octet-stream'.freeze
-  CONTENT_DISPOSITION = 'Content-Disposition: inline; filename="picture.png"'.freeze
 
   def initialize(path)
     @path = path
   end
 
   def accept_request?
-    @path == '/' || @path.start_with?('/files') && File.exist?(@path.delete_prefix('/'))
+    File.exist?(normalized_path)
   end
 
   def read
@@ -24,12 +23,16 @@ class FileRequested
   end
 
   def content_disposition
-    CONTENT_DISPOSITION unless normalized_path.end_with?('.html')
+    "attachment; filename=\"#{file_name}\"" unless normalized_path.end_with?('.html')
   end
 
   private
 
+  def file_name
+    @normalized_path.split('/').last
+  end
+
   def normalized_path
-    @normalized_path ||= @path == '/' ? 'files/test.html' : @path.delete_prefix('/')
+    @normalized_path ||= @path == '/' ? 'files/index.html' : "files/#{@path.delete_prefix('/')}"
   end
 end

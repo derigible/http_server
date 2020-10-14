@@ -8,9 +8,11 @@ You can now make requests against the server.
 
 # Making requests against the server
 
-Note that only requests prefixed with `/files` will be available for download. The special case of `/` will shortcut to `/files`. Therefore, to make a request against the server, enter something like the following:
+Files are served from the files directory, but the user will not know this and will request them using the path within the files directory to the file. The special case of `/` will shortcut to `/index.html`. Therefore, to make a request against the server, enter something like the following:
 
-`curl http://localhost:2000/files/test.html` or `curl http://localhost:2000`
+`curl http://localhost:2000/test.html` or `curl http://localhost:2000`
+
+Both serve the same file located at files/test.html. Open a browser and navigate to any file located in the files directory by appending the relative path from the root directory of this folder without the `files` prefix.
 
 # Test Output in Parallel
 
