@@ -36,21 +36,21 @@ class RequestError < StandardError
 end
 
 class BadRequestError < RequestError
-  MESSAGE = "HTTP/1.1 400 Bad Request\nStatus: 400 Bad Request".freeze
+  MESSAGE = "HTTP/1.1 400 Bad Request\r\nStatus: 400 Bad Request\r\n".freeze
   def message
     MESSAGE
   end
 end
 
 class MethodNotAllowedError < RequestError
-  MESSAGE = "HTTP/1.1 405 Method Not Allowed\nStatus: 405 Method Not Allowed".freeze
+  MESSAGE = "HTTP/1.1 405 Method Not Allowed\r\nStatus: 405 Method Not Allowed\r\n".freeze
   def message
     MESSAGE
   end
 end
 
 class FourOhFourNotFoundError < RequestError
-  MESSAGE = "HTTP/1.1 404 Not Found\nStatus: 404 Not Found".freeze
+  MESSAGE = "HTTP/1.1 404 Not Found\r\nStatus: 404 Not Found\r\n".freeze
   def message
     MESSAGE
   end
